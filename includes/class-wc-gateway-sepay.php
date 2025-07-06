@@ -90,7 +90,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
                 return;
             }
         }
-        
+
         if (isset($_GET['disconnect']) && isset($_GET['_wpnonce'])) {
             if (wp_verify_nonce($_GET['_wpnonce'], 'sepay_disconnect') && current_user_can('manage_woocommerce')) {
                 $this->api->disconnect();
@@ -115,7 +115,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
     {
         if ($this->cached_bank_account_data === null && $this->get_option('bank_account') && $this->api->is_connected()) {
             $this->cached_bank_account_data = $this->api->get_bank_account($this->get_option('bank_account'));
-            
+
             if ($this->cached_bank_account_data) {
                 $settings = get_option('woocommerce_sepay_settings', []);
                 $settings['bank_select'] = strtolower($this->cached_bank_account_data['bank']['short_name']);
@@ -189,7 +189,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             return false;
         }
 
-        $prefix_data = array_values(array_filter($pay_code_prefixes, function($prefix) use ($pay_code_prefix) {
+        $prefix_data = array_values(array_filter($pay_code_prefixes, function ($prefix) use ($pay_code_prefix) {
             return $prefix['prefix'] === $pay_code_prefix;
         }));
 
@@ -262,7 +262,15 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
     public function init_form_fields()
     {
         if (! $this->api->is_connected()) {
-            $this->init_old_form_fields();
+            try {
+                $this->api->refresh_token();
+            } catch (Exception $e) {
+                WC_Admin_Settings::add_error('Không thể làm mới token. Vui lòng thử lại sau.');
+                $this->init_old_form_fields();
+                return;
+            }
+
+            $this->init_form_fields();
             return;
         }
 
@@ -521,7 +529,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
     {
         $statuses = wc_get_order_statuses();
         $result = [];
-        
+
         foreach ($statuses as $key => $label) {
             $result[str_replace('wc-', '', $key)] = $label;
         }
@@ -561,7 +569,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
                 admin_url('admin.php?page=wc-settings&tab=checkout&section=sepay&reconnect=1'),
                 'sepay_reconnect'
             );
-            
+
             $disconnect_url = wp_nonce_url(
                 admin_url('admin.php?page=wc-settings&tab=checkout&section=sepay&disconnect=1'),
                 'sepay_disconnect'
@@ -604,7 +612,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
     {
         $order = wc_get_order($order_id);
         $remark = $this->get_remark($order_id);
-        
+
         if ($this->api->is_connected() && $this->cached_bank_account_data) {
             $bank_account_id = $this->get_option('bank_account');
             $bank_account = $this->api->get_bank_account($bank_account_id);
@@ -616,14 +624,14 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
         } else {
             $account_number = $this->get_option('bank_account_number');
             $account_holder_name = $this->get_option('bank_account_holder');
-            
+
             $bank_select = $this->get_option('bank_select');
             $bank_info = $this->get_bank_data()[$bank_select];
-            
+
             if ($bank_info) {
                 $bank_bin = $bank_info['bin'];
                 $bank_logo_url = sprintf('https://my.sepay.vn/assets/images/banklogo/%s.png', strtolower($bank_info['short_name']));
-                
+
                 if ($this->bank_name_display_type == "brand_name") {
                     $displayed_bank_name = $bank_info['short_name'];
                 } else if ($this->bank_name_display_type == "full_name") {

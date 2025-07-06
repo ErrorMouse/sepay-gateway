@@ -20,7 +20,6 @@ class WC_SePay_API
                 'redirect_uri' => $this->get_callback_url(),
                 'state' => $state,
             ],
-            'sslverify' => false,
         ]);
 
         if (is_wp_error($response)) {
@@ -38,6 +37,10 @@ class WC_SePay_API
 
     public function get_bank_accounts($cache = true)
     {
+        if (!$this->is_connected()) {
+            return null;
+        }
+
         if ($cache) {
             $bank_accounts = get_transient('wc_sepay_bank_accounts');
 
@@ -64,6 +67,10 @@ class WC_SePay_API
 
     public function get_company_info($cache = true)
     {
+        if (!$this->is_connected()) {
+            return null;
+        }
+
         if ($cache) {
             $company = get_transient('wc_sepay_company');
 
@@ -122,6 +129,10 @@ class WC_SePay_API
 
     public function update_company_configurations($data)
     {
+        if (!$this->is_connected()) {
+            return null;
+        }
+
         try {
             $response = $this->make_request('company/configurations', 'PATCH', $data);
             return $response['data'] ?? null;
@@ -130,7 +141,8 @@ class WC_SePay_API
         }
     }
 
-    private function log_error($message, $context = []) {
+    private function log_error($message, $context = [])
+    {
         if (function_exists('wc_get_logger')) {
             $logger = wc_get_logger();
             $logger->error($message, [
@@ -142,6 +154,10 @@ class WC_SePay_API
 
     public function make_request($endpoint, $method = 'GET', $data = null)
     {
+        if (!$this->is_connected()) {
+            return null;
+        }
+
         try {
             $access_token = $this->get_access_token();
         } catch (Exception $e) {
@@ -161,8 +177,8 @@ class WC_SePay_API
             'headers' => [
                 'Authorization' => 'Bearer ' . $access_token,
                 'Content-Type' => 'application/json',
+                'User-Agent' => 'WooCommerce-SePay-Gateway/' . $this->get_plugin_version() . ' (WordPress/' . get_bloginfo('version') . '; WooCommerce/' . (defined('WC_VERSION') ? WC_VERSION : 'Unknown') . ')',
             ],
-            'sslverify' => false,
             'timeout' => 30,
         ];
 
@@ -217,7 +233,6 @@ class WC_SePay_API
             'body' => [
                 'refresh_token' => $refresh_token,
             ],
-            'sslverify' => false,
         ]);
 
         if (is_wp_error($response)) {
@@ -266,7 +281,9 @@ class WC_SePay_API
 
     public function is_connected()
     {
-        return !empty(get_option('wc_sepay_access_token')) && !empty(get_option('wc_sepay_refresh_token'));
+        return !empty(get_option('wc_sepay_access_token'))
+            && !empty(get_option('wc_sepay_refresh_token'))
+            && get_option('wc_sepay_token_expires') > time() + 300;
     }
 
     public function get_bank_account($id)
@@ -293,6 +310,10 @@ class WC_SePay_API
 
     public function get_webhooks($data = null)
     {
+        if (!$this->is_connected()) {
+            return [];
+        }
+
         try {
             $response = $this->make_request('webhooks', 'GET', $data);
 
@@ -304,8 +325,23 @@ class WC_SePay_API
 
     public function get_webhook($id)
     {
+        if (!$this->is_connected()) {
+            return null;
+        }
+
+        $cache = get_transient('wc_sepay_webhook_' . $id);
+
+        if ($cache) {
+            return $cache;
+        }
+
         try {
             $response = $this->make_request('webhooks/' . $id);
+
+            if ($response['data']) {
+                set_transient('wc_sepay_webhook_' . $id, $response['data'], 3600);
+            }
+
             return $response['data'] ?? null;
         } catch (Exception $e) {
             return null;
@@ -314,6 +350,10 @@ class WC_SePay_API
 
     public function create_webhook($bank_account_id, $webhook_id = null)
     {
+        if (!$this->is_connected()) {
+            return null;
+        }
+
         $api_key = wp_generate_password(32, false);
 
         $api_path = 'sepay-gateway/v2/add-payment';
@@ -363,6 +403,10 @@ class WC_SePay_API
 
     public function get_bank_sub_accounts($bank_account_id, $cache = true)
     {
+        if (!$this->is_connected()) {
+            return [];
+        }
+
         if ($cache) {
             $sub_accounts = get_transient('wc_sepay_bank_sub_accounts_' . $bank_account_id);
 
@@ -389,6 +433,10 @@ class WC_SePay_API
 
     public function update_webhook($webhook_id, $data)
     {
+        if (!$this->is_connected()) {
+            return null;
+        }
+
         try {
             $response = $this->make_request('webhooks/' . $webhook_id, 'PATCH', $data);
 
@@ -400,6 +448,10 @@ class WC_SePay_API
 
     public function get_user_info()
     {
+        if (!$this->is_connected()) {
+            return null;
+        }
+
         $user_info = get_transient('wc_sepay_user_info');
 
         if ($user_info) {
@@ -457,7 +509,8 @@ class WC_SePay_API
         return in_array($bank_account[$key]['bank']['short_name'], $required_sub_account_banks);
     }
 
-    public function check_connection_health() {
+    public function check_connection_health()
+    {
         try {
             $response = $this->make_request('me');
             if ($response && isset($response['data'])) {
@@ -472,7 +525,8 @@ class WC_SePay_API
         }
     }
 
-    public function get_connection_status() {
+    public function get_connection_status()
+    {
         $access_token = get_option('wc_sepay_access_token');
         $refresh_token = get_option('wc_sepay_refresh_token');
         $token_expires = get_option('wc_sepay_token_expires');
@@ -486,5 +540,17 @@ class WC_SePay_API
         ];
 
         return $status;
+    }
+
+    private function get_plugin_version()
+    {
+        if (!function_exists('get_plugin_data')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $plugin_file = dirname(dirname(__FILE__)) . '/sepay-gateway.php';
+        $plugin_data = get_plugin_data($plugin_file);
+
+        return $plugin_data['Version'] ?? '1.0.0';
     }
 }
