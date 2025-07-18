@@ -5,7 +5,7 @@
  * Description: SePay - Giải pháp tự động xác nhận thanh toán chuyển khoản ngân hàng
  * Author: SePay Team
  * Author URI: https://sepay.vn/
- * Version: 1.1.15
+ * Version: 1.1.17
  * Requires Plugins: woocommerce
  * Text Domain: sepay-gateway
  * License: GNU General Public License v3.0
@@ -126,7 +126,7 @@ function sepay_init_gateway_class()
 
         $webhook_id = isset($webhooks[0]['id']) ? $webhooks[0]['id'] : null;
 
-        $response = $api->create_webhook($bank_account_id, $webhook_id);
+        $response = $api->create_webhook($bank_account_id, $webhook_id, $api_token);
 
         if ($response['status'] !== 'success') {
             wp_send_json_error(['message' => 'Có lỗi xảy ra khi tạo webhook. Vui lòng thử lại sau.']);
@@ -169,6 +169,7 @@ function sepay_init_gateway_class()
         $settings['enabled'] = 'yes';
         $settings['bank_account'] = $bank_account_id;
         $settings['sub_account'] = $sub_account;
+        
         $settings['title'] = 'SePay';
         $settings['description'] = 'Thanh toán qua chuyển khoản ngân hàng với QR Code (VietQR). Tự động xác nhận thanh toán qua <a href="https://sepay.vn" target="_blank">SePay</a>.';
         $settings['logo'] = plugin_dir_url(__FILE__) . 'assets/images/sepay-logo.png';
@@ -261,7 +262,7 @@ function sepay_init_gateway_class()
         /** @var WC_Payment_Gateway $sepay_gateway */
         $sepay_gateway = $payment_gateways->payment_gateways()['sepay'];
 
-        $webhook_api_key = $api->is_connected() ? get_option('wc_sepay_webhook_api_key') : $sepay_gateway->get_option('api_key');
+        $webhook_api_key = get_option('wc_sepay_webhook_api_key') ? get_option('wc_sepay_webhook_api_key') : $sepay_gateway->get_option('api_key');
 
         if ($api_key !== $webhook_api_key) {
             return [
