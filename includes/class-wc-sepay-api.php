@@ -529,13 +529,13 @@ class WC_SePay_API
             $sub_accounts = get_transient($cache_key);
 
             if (is_array($sub_accounts)) {
-                return $sub_accounts;
+                return $this->filter_real_sub_accounts($sub_accounts);
             }
         }
 
         try {
-            $response = $this->make_request("bank-accounts/$bank_account_id/sub-accounts");
-            $data = $response['data'] ?? [];
+            $response = $this->make_request("bank-accounts/$bank_account_id/sub-accounts", 'GET', ['limit' => 100]);
+            $data = $this->filter_real_sub_accounts($response['data'] ?? []);
 
             if ($cache) {
                 set_transient($cache_key, $data, 3600);
@@ -545,6 +545,17 @@ class WC_SePay_API
         } catch (Exception $e) {
             return [];
         }
+    }
+
+    private function filter_real_sub_accounts($sub_accounts)
+    {
+        if (!is_array($sub_accounts)) {
+            return [];
+        }
+
+        return array_values(array_filter($sub_accounts, function ($sub_account) {
+            return isset($sub_account['acc_type']) && $sub_account['acc_type'] === 'Real';
+        }));
     }
 
     public function update_webhook($webhook_id, $data)
@@ -629,12 +640,22 @@ class WC_SePay_API
         foreach ($transients as $transient) {
             delete_transient($transient);
         }
+
+        // Sub-accounts are cached per bank account: wc_sepay_bank_sub_accounts_{id}
+        global $wpdb;
+        $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+                $wpdb->esc_like('_transient_wc_sepay_bank_sub_accounts_') . '%',
+                $wpdb->esc_like('_transient_timeout_wc_sepay_bank_sub_accounts_') . '%'
+            )
+        );
     }
 
     public function is_required_sub_account($bank_account_id, $bank_accounts = null)
     {
         $required_sub_account_banks = ['BIDV', 'OCB', 'MSB', 'KienLongBank'];
-        $excluded_sub_account_banks = ['TPBank', 'VPBank', 'VietinBank'];
+        $excluded_sub_account_banks = ['TPBank'];
         $bank_accounts = $bank_accounts ?? $this->get_bank_accounts();
 
         $bank_account = array_filter($bank_accounts, function ($account) use ($bank_account_id) {

@@ -167,7 +167,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             return false;
         }
 
-        $excluded_sub_account_banks = ['TPBank', 'VPBank', 'VietinBank'];
+        $excluded_sub_account_banks = ['TPBank'];
         $bank_account = array_filter($this->bank_accounts, function ($account) use ($bank_account_id) {
             return $account['id'] == $bank_account_id;
         });
@@ -351,7 +351,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
             $selected_bank_account = $this->get_option('bank_account');
             $sub_account_options = [];
 
-            $excluded_sub_account_banks = ['TPBank', 'VPBank', 'VietinBank'];
+            $excluded_sub_account_banks = ['TPBank'];
             $show_sub_account_field = true;
 
             if (!empty($selected_bank_account)) {
@@ -387,7 +387,7 @@ class WC_Gateway_SePay extends WC_Payment_Gateway
                 $form_fields['sub_account'] = [
                     'title' => 'Tài khoản VA',
                     'type' => 'select',
-                    'description' => 'Chọn tài khoản VA để nhận thanh toán (nếu có). Một số ngân hàng yêu cầu phải chọn tài khoản VA. <br> (Lưu ý: TPBank, VPBank và VietinBank không hỗ trợ tài khoản VA).',
+                    'description' => 'Chọn tài khoản VA để nhận thanh toán (nếu có). Một số ngân hàng yêu cầu phải chọn tài khoản VA. <br> (Lưu ý: TPBank không hỗ trợ tài khoản VA).',
                     'options' => $sub_account_options,
                     'class' => 'dynamic-sub-account',
                     'default' => $this->get_option('sub_account'),

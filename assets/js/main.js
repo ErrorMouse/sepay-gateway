@@ -23,7 +23,7 @@ jQuery(document).ready(function () {
       if (selectedAccountId) {
         loadingSpinner.show();
 
-        const excludedSubAccountBanks = ["TPBank", "VPBank", "VietinBank"];
+        const excludedSubAccountBanks = ["TPBank"];
         const requiredSubAccountBanks = ["BIDV", "MSB", "KienLongBank", "OCB"];
         const requiresSubAccount =
           requiredSubAccountBanks.includes(bankShortName) &&
@@ -53,7 +53,20 @@ jQuery(document).ready(function () {
                 response.data &&
                 response.data.length > 0
               ) {
-                if (requiresSubAccount) {
+                if (!excludedSubAccountBanks.includes(bankShortName)) {
+                  if (!requiresSubAccount) {
+                    const $label = jQuery('<label class="wc-sepay-sub-account-item">');
+                    const $input = jQuery('<input type="radio" name="sub_account" checked>')
+                      .val("");
+                    const $details = jQuery('<div class="wc-sepay-sub-account-details">');
+                    const $holder = jQuery('<div class="wc-sepay-sub-account-holder">')
+                      .text("Không dùng tài khoản VA");
+                    const $number = jQuery('<div class="wc-sepay-sub-account-number">')
+                      .text("Nhận thanh toán vào tài khoản chính");
+                    $details.append($holder).append($number);
+                    $label.append($input).append($details);
+                    subAccountList.append($label);
+                  }
                   response.data.forEach(function (subAccount) {
                     const $label = jQuery('<label class="wc-sepay-sub-account-item">');
                     const $input = jQuery('<input type="radio" name="sub_account">')
@@ -242,7 +255,7 @@ jQuery(document).ready(function () {
       return;
     }
 
-    const excludedSubAccountBanks = ["TPBank", "VPBank", "VietinBank"];
+    const excludedSubAccountBanks = ["TPBank"];
     const requiredSubAccountBanks = ["BIDV", "MSB", "KienLongBank", "OCB"];
 
     if (excludedSubAccountBanks.includes(bankName)) {
@@ -336,7 +349,7 @@ jQuery(document).ready(function () {
 
   function update_account_number_field_ui() {
     const bank = jQuery("#woocommerce_sepay_bank_select").val();
-    const excludedSubAccountBanks = ["tpbank", "vpbank", "vietinbank"];
+    const excludedSubAccountBanks = ["tpbank"];
     const requiredSubAccountBanks = ["bidv", "ocb", "msb", "kienlongbank"];
 
     if (
